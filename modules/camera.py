@@ -2,17 +2,16 @@ import math
 
 import torch
 
-class QuadPredictor(torch.nn.Module):
+class QuatPredictor(torch.nn.Module):
 	"""
 	"""
 	def __init__(self, input_dim):
-		super(QuadPredictor, self).__init__()
+		super(QuatPredictor, self).__init__()
 		self.fc = torch.nn.Linear(input_dim, 4)
 
 	def forward(self, feat):
 		quat = self.fc(feat)
-		quat = torch.nn.functional.normalize(quat)
-
+		quat = torch.nn.functional.normalize(quat,dim=-1)
 		return quat
 
 	def init_to_zero_rotation(self):
@@ -49,7 +48,7 @@ class CameraPredictor(torch.nn.Module):
 
 		self.scale_predictor = ScalePredictor(input_dim, scale_bias, scale_factor)
 		self.trans_predictor = torch.nn.Linear(input_dim, 2)
-		self.quat_predictor = QuadPredictor(input_dim)
+		self.quat_predictor = QuatPredictor(input_dim)
 		self.prob_predictor = torch.nn.Linear(input_dim, 1)
 
 	def forward(self, feat):
