@@ -105,7 +105,7 @@ class ShapeNet_Images(data.Dataset):
     def __init__(self, root: str, categories: list = ['chair'], train: bool = True,
                  split: float = .7, views: int = 24, transform=None,
                  no_progress: bool = False):
-        self.root = Path(root)
+        self.root = root
         self.synsets = _convert_categories(categories)
         self.labels = [synset_to_label[s] for s in self.synsets]
         self.transform = transform
@@ -113,20 +113,18 @@ class ShapeNet_Images(data.Dataset):
         self.names = []
         self.synset_idx = []
 
-        shapenet_img_root = self.root / 'images'
+        shapenet_img_root = os.path.join(self.root, 'images')
         # check if images exist
-        if not shapenet_img_root.exists():
-            raise ValueError('ShapeNet images were not found at location {0}.'.format(
-                str(shapenet_img_root)))
+        if not os.path.exists(shapenet_img_root):
+            raise ValueError('ShapeNet images were not found at location {0}.'.format(shapenet_img_root))
 
         # find all needed images
         for i in tqdm(range(len(self.synsets)), disable=no_progress):
             syn = self.synsets[i]
-            class_target = shapenet_img_root / syn
-            assert class_target.exists(), \
-                "ShapeNet class, {0}, is not found".format(syn)
+            class_target = os.path.join(shapenet_img_root, syn)
+            assert os.path.exists(class_target), "ShapeNet class, {0}, is not found".format(syn)
 
-            models = sorted(class_target.glob('*'))
+            models = sorted(glob(os.path.join(class_target, '*')))
             stop = int(len(models) * split)
             if train:
                 models = models[:stop]
@@ -147,7 +145,7 @@ class ShapeNet_Images(data.Dataset):
         name = self.names[index]
         view_num = random.randrange(0, self.views)
         # load and process image
-        img = Image.open(str(img_name / f'rendering/{view_num:02}.png'))
+        img = Image.open(os.path.join(name, 'rendering/{:02d}.png'.format(view_num)))
         # apply transformations
         if self.transform is not None:
             img = self.transform(img)
@@ -156,7 +154,7 @@ class ShapeNet_Images(data.Dataset):
             img = img.permute(2, 1, 0)
             img = img / 255.
         # load and process camera parameters
-        param_location = img_name / 'rendering/rendering_metadata.txt'
+        param_location = os.path.join(name, 'rendering/rendering_metadata.txt')
         azimuth, elevation, _, distance, _ = np.loadtxt(param_location)[view_num]
         cam_params = transformations.compute_camera_params(azimuth, elevation, distance)
 
@@ -164,10 +162,10 @@ class ShapeNet_Images(data.Dataset):
         data['params'] = dict()
         data['params']['cam_mat'] = cam_params[0]
         data['params']['cam_pos'] = cam_params[1]
-        data['params']['azi'] = azimuth
+        data['params']['azimuth'] = azimuth
         data['params']['elevation'] = elevation
         data['params']['distance'] = distance
         attributes['name'] = name
-        attributes['synset'] = self.synsets[synset_idx]
+        attributes['synset'] = self.synsets[self.synset_idx[index]]
         attributes['label'] = self.labels[self.synset_idx[index]]
         return {'data': data, 'attributes': attributes}
