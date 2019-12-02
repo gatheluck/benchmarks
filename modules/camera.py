@@ -57,7 +57,7 @@ class CameraPredictor(torch.nn.Module):
 		trans = self.trans_predictor(feat)
 		quat  = self.quat_predictor(feat)
 		logit = self.prob_predictor(feat)
-		return torch.cat([scale, trans, quat, logit])
+		return torch.cat([scale, trans, quat, logit], dim=-1)
 
 
 class MutiCameraPredictor(torch.nn.Module):
@@ -80,8 +80,8 @@ class MutiCameraPredictor(torch.nn.Module):
 			torch.nn.LeakyReLU(0.1, inplace=True)
 		)
 
-		self.camera_predictors = nn.ModuleList([
-			Camera(input_dim, scale_bias, scale_factor) for i in range(self.num_cams)
+		self.camera_predictors = torch.nn.ModuleList([
+			CameraPredictor(input_dim, scale_bias, scale_factor) for i in range(self.num_cams)
 		])
 
 	def forward(self, feat):
@@ -93,7 +93,7 @@ class MutiCameraPredictor(torch.nn.Module):
 		- idx (torch.Tensor/[B,1]): 
 		- prob (torch.Tensor/[B,N]):
 		"""
-		feat = self.encoder(feat)
+		feat = self.encoder(feat) # (1, 512)
 
 		# prediction loop for multiple cameras
 		camera_preds = []
@@ -125,6 +125,6 @@ class MutiCameraPredictor(torch.nn.Module):
 		sample = dist.sample() #(B,N)
 		idx = torch.nonzero(sample)[:,1].reshape(-1,1) #(B,1)
 		camera_sampled = torch.gather(camera_preds[:, :, 0:7], dim=1, index=idx.unsqueeze(1).repeat(1,1,7)) #(B,1,7)
-		camera_sampled = camera_sampled.unsqueeze(1) #(B,7)
-		
+		camera_sampled = camera_sampled.squeeze(1) #(B,7)
+
 		return camera_sampled, idx
